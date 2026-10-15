@@ -1,0 +1,6 @@
+.env
+backend/target/
+backend/data/
+data/
+*.log
+.DS_Store
