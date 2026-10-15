@@ -1,0 +1,49 @@
+spring:
+  application:
+    name: campus-os
+  datasource:
+    url: ${DB_URL:jdbc:h2:file:./data/campusos;MODE=MySQL;DB_CLOSE_DELAY=-1}
+    username: ${DB_USERNAME:sa}
+    password: ${DB_PASSWORD:}
+    driver-class-name: ${DB_DRIVER:org.h2.Driver}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: false
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+  servlet:
+    multipart:
+      max-file-size: 5MB
+
+server:
+  port: ${PORT:8080}
+  servlet:
+    session:
+      cookie:
+        http-only: true
+        same-site: lax
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: when-authorized
+
+campusos:
+  timezone: ${CAMPUS_TIMEZONE:Asia/Kolkata}
+  overdue-hours: 48
+
+logging:
+  level:
+    com.campusos: INFO
