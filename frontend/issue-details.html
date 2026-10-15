@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Issue detail · CampusOS</title>
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+<div id="topbar"></div>
+<main>
+  <p><a href="issues.html">← Back to issues</a></p>
+  <h1 id="title">Issue</h1>
+  <div id="notice"></div>
+  <section class="panel" id="detail"></section>
+  <section class="panel" id="assign-panel">
+    <h2>Assign a technician</h2>
+    <p class="small muted">Administrators only. The backend rejects anyone else.</p>
+    <div class="row">
+      <div><label for="technician">Technician</label><select id="technician"></select></div>
+    </div>
+    <div class="actions"><button type="button" id="assign-btn">Assign</button></div>
+  </section>
+  <section class="panel">
+    <h2>Move this issue forward</h2>
+    <label for="note">Note (required to resolve)</label>
+    <textarea id="note"></textarea>
+    <div class="actions" id="transitions"></div>
+  </section>
+  <section class="panel">
+    <h2>Activity history</h2>
+    <ul class="timeline" id="activity"></ul>
+  </section>
+</main>
+<footer>CampusOS · Every transition is audited.</footer>
+<script type="module" src="js/pages/issue-details.js"></script>
+</body>
+</html>

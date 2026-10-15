@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Log in · CampusOS</title>
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+<div id="topbar"></div>
+<main>
+  <div class="login-wrap">
+    <h1>Log in to CampusOS</h1>
+    <p class="lead">Report issues, book labs and rooms, and track campus operations. Use your campus account — the demo accounts below work only with the local demo data.</p>
+    <div id="notice"></div>
+    <form id="login-form" class="panel">
+      <label for="email">Email</label>
+      <input id="email" type="email" required autocomplete="username">
+      <label for="password">Password</label>
+      <input id="password" type="password" required autocomplete="current-password">
+      <div class="actions"><button type="submit">Log in</button></div>
+    </form>
+    <section class="panel">
+      <h2>Demo accounts (local only)</h2>
+      <p class="small muted">Seeded only under the <code>local</code> profile. Click one to fill the form.</p>
+      <div class="demo-grid" id="demo-accounts"></div>
+    </section>
+  </div>
+</main>
+<footer>CampusOS · Session login — no passwords are stored in the browser.</footer>
+<script type="module" src="js/pages/login.js"></script>
+</body>
+</html>

@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Resources · CampusOS</title>
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+<div id="topbar"></div>
+<main>
+  <h1>Resources</h1>
+  <p class="lead">Labs, classrooms, rooms, and equipment. Filter the catalogue, then book from the bookings page.</p>
+  <div id="notice"></div>
+  <section class="panel">
+    <h2 id="form-title">Add a resource</h2>
+    <p class="small muted">Administrators only — the backend returns 403 otherwise.</p>
+    <form id="resource-form">
+      <input type="hidden" id="r-id">
+      <div class="row">
+        <div><label for="r-name">Name</label><input id="r-name" required maxlength="160"></div>
+        <div><label for="r-type">Type</label>
+          <select id="r-type"><option>COMPUTER_LAB</option><option>CLASSROOM</option><option>MEETING_ROOM</option><option>PROJECTOR</option><option>LAB_EQUIPMENT</option><option>OTHER</option></select></div>
+        <div><label for="r-building">Building</label><input id="r-building" required maxlength="120"></div>
+      </div>
+      <div class="row">
+        <div><label for="r-location">Location</label><input id="r-location" maxlength="160"></div>
+        <div><label for="r-capacity">Capacity</label><input id="r-capacity" type="number" min="1"></div>
+        <div><label for="r-status">Status</label>
+          <select id="r-status"><option>ACTIVE</option><option>MAINTENANCE</option><option>INACTIVE</option></select></div>
+      </div>
+      <label for="r-description">Description</label>
+      <textarea id="r-description" maxlength="1000"></textarea>
+      <div class="row">
+        <div><label for="r-equipment">Equipment (comma separated)</label><input id="r-equipment" placeholder="projector, whiteboard"></div>
+        <div><label for="r-approval">Needs approval</label>
+          <select id="r-approval"><option value="false">No</option><option value="true">Yes</option></select></div>
+      </div>
+      <div class="actions">
+        <button type="submit" id="save-btn">Save resource</button>
+        <button type="button" class="secondary" id="reset-btn">Clear form</button>
+      </div>
+    </form>
+  </section>
+  <section class="panel">
+    <h2>Catalogue</h2>
+    <form id="filter-form">
+      <div class="row">
+        <div><label for="q">Search name</label><input id="q"></div>
+        <div><label for="f-type">Type</label>
+          <select id="f-type"><option value="">Any</option><option>COMPUTER_LAB</option><option>CLASSROOM</option><option>MEETING_ROOM</option><option>PROJECTOR</option><option>LAB_EQUIPMENT</option><option>OTHER</option></select></div>
+        <div><label for="f-building">Building</label><input id="f-building"></div>
+        <div><label for="f-capacity">Min capacity</label><input id="f-capacity" type="number" min="1"></div>
+      </div>
+      <div class="actions"><button type="submit">Apply filters</button></div>
+    </form>
+    <div id="resource-list"></div>
+  </section>
+</main>
+<footer>CampusOS · Only ACTIVE resources can be booked.</footer>
+<script type="module" src="js/pages/resources.js"></script>
+</body>
+</html>

@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Issues · CampusOS</title>
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+<div id="topbar"></div>
+<main>
+  <h1>Issues</h1>
+  <p class="lead">Report a problem and follow it through triage, assignment, and resolution. You only ever see issues the backend allows your role to see.</p>
+  <div id="notice"></div>
+  <section class="panel">
+    <h2>Report an issue</h2>
+    <form id="create-form">
+      <div class="row">
+        <div><label for="f-title">Title</label><input id="f-title" required maxlength="200"></div>
+        <div><label for="f-category">Category</label>
+          <select id="f-category">
+            <option>ELECTRICAL</option><option>PLUMBING</option><option>LAB_EQUIPMENT</option>
+            <option>COMPUTER_SYSTEMS</option><option>CLASSROOM_EQUIPMENT</option><option>NETWORK</option>
+            <option>CLEANING</option><option>SAFETY</option><option>OTHER</option>
+          </select></div>
+      </div>
+      <label for="f-description">Description</label>
+      <textarea id="f-description" required maxlength="4000"></textarea>
+      <div class="row">
+        <div><label for="f-building">Building</label><input id="f-building" required maxlength="120"></div>
+        <div><label for="f-location">Location detail</label><input id="f-location" maxlength="200"></div>
+        <div><label for="f-priority">Priority</label>
+          <select id="f-priority"><option value="">Let the system recommend</option><option>LOW</option><option>MEDIUM</option><option>HIGH</option><option>CRITICAL</option></select></div>
+      </div>
+      <div class="row">
+        <div><label for="f-people">People affected</label><input id="f-people" type="number" min="1" value="1"></div>
+        <div><label for="f-safety">Safety risk</label>
+          <select id="f-safety"><option value="false">No</option><option value="true">Yes</option></select></div>
+      </div>
+      <div class="actions"><button type="submit">Submit issue</button></div>
+      <p class="small muted" id="recommendation"></p>
+    </form>
+  </section>
+  <section class="panel">
+    <h2>Find issues</h2>
+    <form id="filter-form">
+      <div class="row">
+        <div><label for="q">Search</label><input id="q" placeholder="Title, text, or ISS- reference"></div>
+        <div><label for="status">Status</label>
+          <select id="status"><option value="">Any</option><option>REPORTED</option><option>TRIAGED</option><option>ASSIGNED</option><option>IN_PROGRESS</option><option>RESOLVED</option><option>CLOSED</option><option>REJECTED</option><option>CANCELLED</option></select></div>
+        <div><label for="category">Category</label>
+          <select id="category"><option value="">Any</option><option>ELECTRICAL</option><option>PLUMBING</option><option>LAB_EQUIPMENT</option><option>COMPUTER_SYSTEMS</option><option>CLASSROOM_EQUIPMENT</option><option>NETWORK</option><option>CLEANING</option><option>SAFETY</option><option>OTHER</option></select></div>
+      </div>
+      <div class="actions">
+        <button type="submit">Apply filters</button>
+        <button type="button" class="secondary" id="mine-btn">Mine only</button>
+        <button type="button" class="secondary" id="assigned-btn">Assigned to me</button>
+        <button type="button" class="secondary" id="overdue-btn">Overdue (staff)</button>
+      </div>
+    </form>
+    <div id="issue-list"></div>
+  </section>
+</main>
+<footer>CampusOS · Issue references look like ISS-0001.</footer>
+<script type="module" src="js/pages/issues.js"></script>
+</body>
+</html>

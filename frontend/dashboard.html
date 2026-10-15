@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard · CampusOS</title>
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+<div id="topbar"></div>
+<main>
+  <h1 id="welcome">Dashboard</h1>
+  <p class="lead">Your issues, bookings, and campus-wide picture at a glance. Everything here is enforced by the backend — hiding a button never grants access.</p>
+  <div id="notice"></div>
+  <section><div class="kpis" id="kpis"></div></section>
+  <section class="panel">
+    <h2>My recent issues</h2>
+    <div id="my-issues"></div>
+    <div class="actions"><a class="btn" href="issues.html">View and report issues</a></div>
+  </section>
+  <section class="panel">
+    <h2>My bookings</h2>
+    <div id="my-bookings"></div>
+    <div class="actions"><a class="btn" href="bookings.html">Book a resource</a></div>
+  </section>
+</main>
+<footer>CampusOS · Times shown in Asia/Kolkata.</footer>
+<script type="module" src="js/pages/dashboard.js"></script>
+</body>
+</html>

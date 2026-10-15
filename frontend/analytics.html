@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Analytics · CampusOS</title>
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+<div id="topbar"></div>
+<main>
+  <h1>Analytics</h1>
+  <p class="lead">Issue and utilisation picture for the selected range. Empty ranges return zeros, not errors. Utilisation figures are labelled estimates.</p>
+  <div id="notice"></div>
+  <section class="panel">
+    <form id="range-form">
+      <div class="row">
+        <div><label for="from">From</label><input id="from" type="datetime-local"></div>
+        <div><label for="to">To</label><input id="to" type="datetime-local"></div>
+      </div>
+      <div class="actions"><button type="submit">Load analytics</button></div>
+    </form>
+  </section>
+  <div class="kpis" id="kpis"></div>
+  <section class="panel"><h2>Issues by category</h2><div id="by-category"></div></section>
+  <section class="panel"><h2>Issues by status</h2><div id="by-status"></div></section>
+  <section class="panel"><h2>Top buildings</h2><div id="top-buildings"></div></section>
+  <section class="panel"><h2>Resource utilisation (estimate)</h2><div id="usage"></div></section>
+</main>
+<footer>CampusOS · Core KPIs come from database aggregation.</footer>
+<script type="module" src="js/pages/analytics.js"></script>
+</body>
+</html>

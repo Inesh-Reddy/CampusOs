@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bookings · CampusOS</title>
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+<div id="topbar"></div>
+<main>
+  <h1>Bookings</h1>
+  <p class="lead">Book a lab or room. Overlapping bookings are rejected with alternative slots — adjacent bookings that start exactly when another ends are fine.</p>
+  <div id="notice"></div>
+  <div id="conflict"></div>
+  <section class="panel">
+    <h2>New booking</h2>
+    <form id="booking-form">
+      <div class="row">
+        <div><label for="b-resource">Resource</label><select id="b-resource" required></select></div>
+        <div><label for="b-purpose">Purpose</label><input id="b-purpose" required maxlength="300"></div>
+      </div>
+      <div class="row">
+        <div><label for="b-start">Starts</label><input id="b-start" type="datetime-local" required></div>
+        <div><label for="b-end">Ends</label><input id="b-end" type="datetime-local" required></div>
+      </div>
+      <div class="actions"><button type="submit">Request booking</button></div>
+    </form>
+  </section>
+  <section class="panel">
+    <h2>Find the best slot (simulator)</h2>
+    <p class="small muted">Rankings are estimates with reasons shown. Booking a recommendation re-checks availability through the normal booking flow.</p>
+    <form id="optimizer-form">
+      <div class="row">
+        <div><label for="o-type">Type</label>
+          <select id="o-type"><option>COMPUTER_LAB</option><option>CLASSROOM</option><option>MEETING_ROOM</option><option>PROJECTOR</option><option>LAB_EQUIPMENT</option><option>OTHER</option></select></div>
+        <div><label for="o-capacity">People</label><input id="o-capacity" type="number" min="1" value="20"></div>
+        <div><label for="o-building">Preferred building</label><input id="o-building"></div>
+      </div>
+      <div class="row">
+        <div><label for="o-equipment">Equipment (comma separated)</label><input id="o-equipment" placeholder="projector"></div>
+        <div><label for="o-start">Starts</label><input id="o-start" type="datetime-local" required></div>
+        <div><label for="o-end">Ends</label><input id="o-end" type="datetime-local" required></div>
+      </div>
+      <div class="actions"><button type="submit">Recommend resources</button></div>
+    </form>
+    <div id="recommendations"></div>
+  </section>
+  <section class="panel">
+    <h2>Bookings</h2>
+    <div class="actions">
+      <button type="button" class="secondary" id="mine-btn">Mine only</button>
+      <button type="button" class="secondary" id="all-btn">All I can see</button>
+    </div>
+    <div id="booking-list"></div>
+  </section>
+  <section class="panel">
+    <h2>Resource schedule</h2>
+    <form id="schedule-form">
+      <div class="row">
+        <div><label for="s-resource">Resource</label><select id="s-resource"></select></div>
+        <div><label for="s-from">From</label><input id="s-from" type="datetime-local" required></div>
+        <div><label for="s-to">To</label><input id="s-to" type="datetime-local" required></div>
+      </div>
+      <div class="actions"><button type="submit">Show schedule</button></div>
+    </form>
+    <div id="schedule"></div>
+  </section>
+</main>
+<footer>CampusOS · Approval-required resources start as PENDING.</footer>
+<script type="module" src="js/pages/bookings.js"></script>
+</body>
+</html>

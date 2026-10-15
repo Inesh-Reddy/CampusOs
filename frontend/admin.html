@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin · CampusOS</title>
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+<div id="topbar"></div>
+<main>
+  <h1>Administration</h1>
+  <p class="lead">Campus administrators manage user accounts here. Technicians available for assignment are listed for staff.</p>
+  <div id="notice"></div>
+  <section class="panel">
+    <h2>Create a user</h2>
+    <form id="user-form">
+      <div class="row">
+        <div><label for="u-email">Email</label><input id="u-email" type="email" required></div>
+        <div><label for="u-name">Display name</label><input id="u-name" required></div>
+        <div><label for="u-password">Temporary password</label><input id="u-password" type="password" required></div>
+      </div>
+      <div class="row">
+        <div><label for="u-role">Role</label>
+          <select id="u-role"><option>STUDENT</option><option>FACULTY</option><option>TECHNICIAN</option><option>DEPT_ADMIN</option><option>CAMPUS_ADMIN</option></select></div>
+        <div><label for="u-dept">Department</label><input id="u-dept"></div>
+      </div>
+      <div class="actions"><button type="submit">Create user</button></div>
+    </form>
+  </section>
+  <section class="panel"><h2>All users</h2><div id="users"></div></section>
+  <section class="panel"><h2>Technicians</h2><div id="technicians"></div></section>
+</main>
+<footer>CampusOS · Admin actions are checked again on the server.</footer>
+<script type="module" src="js/pages/admin.js"></script>
+</body>
+</html>
