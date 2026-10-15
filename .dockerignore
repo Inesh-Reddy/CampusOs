@@ -1,0 +1,6 @@
+.git
+.env
+backend/target
+data
+*.log
+.DS_Store

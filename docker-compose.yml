@@ -1,0 +1,38 @@
+services:
+  mysql:
+    image: mysql:9
+    container_name: campusos-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-campusroot}
+      MYSQL_DATABASE: campusos
+      MYSQL_USER: campusos
+      MYSQL_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+    ports:
+      - "3307:3306"
+    volumes:
+      - campusos-mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p\"$$MYSQL_ROOT_PASSWORD\""]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: campusos-app
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: local,mysql
+      DB_URL: jdbc:mysql://mysql:3306/campusos?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      DB_USERNAME: campusos
+      DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+      DB_DRIVER: com.mysql.cj.jdbc.Driver
+    ports:
+      - "8080:8080"
+
+volumes:
+  campusos-mysql-data:
