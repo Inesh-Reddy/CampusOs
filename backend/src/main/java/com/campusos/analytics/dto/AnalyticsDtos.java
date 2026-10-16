@@ -4,6 +4,7 @@ import jakarta.validation.constraints.NotNull;
 
 import java.time.Instant;
 import java.util.List;
+import io.swagger.v3.oas.annotations.media.Schema;
 
 public final class AnalyticsDtos {
     private AnalyticsDtos() {}
@@ -21,7 +22,7 @@ public final class AnalyticsDtos {
                                         double bookedHours, double utilizationRate) {}
 
     public record OptimizationRequest(
-            @NotNull(message = "Resource type is required.") String resourceType,
+            @Schema(example = "COMPUTER_LAB", allowableValues = {"COMPUTER_LAB", "CLASSROOM", "MEETING_ROOM", "PROJECTOR", "LAB_EQUIPMENT", "OTHER"}) @NotNull(message = "Resource type is required.") String resourceType,
             Integer capacity,
             List<String> equipment,
             @NotNull(message = "Start time is required.") Instant startAt,

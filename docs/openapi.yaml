@@ -1,0 +1,1833 @@
+openapi: 3.0.1
+info:
+  title: CampusOS API
+  description: "Issue reporting, resource booking, and operational analytics for CampusOS.\
+    \ Authentication uses a server-side session cookie (JSESSIONID) issued by POST\
+    \ /api/v1/auth/login. Mutating requests (except login) must also send the CSRF\
+    \ token from the XSRF-TOKEN cookie as the X-XSRF-TOKEN header. There is no bearer-token\
+    \ flow."
+  version: 1.0.0
+servers:
+- url: http://127.0.0.1:8080
+  description: Local (Docker or jar)
+- url: https://campus.example.edu
+  description: Production (placeholder — update before deployment)
+security:
+- sessionCookie: []
+  csrfToken: []
+tags:
+- name: Administration
+  description: User administration. Listing and creating users requires the CAMPUS_ADMIN
+    role.
+- name: Authentication
+  description: "Session login, logout, and current-user lookup."
+- name: Bookings
+  description: Book resources without overlap. Approval-required resources start as
+    PENDING until an administrator approves.
+- name: Issues
+  description: "Report, triage, assign, and track campus issues. Lists and details\
+    \ are scoped server-side to what the caller's role may see."
+- name: Analytics
+  description: Campus KPIs and the resource optimization simulator. Utilisation figures
+    are labelled estimates.
+- name: Resources
+  description: Campus resource catalogue. Creating and updating resources is restricted
+    to administrators.
+paths:
+  /api/v1/resources:
+    get:
+      tags:
+      - Resources
+      summary: "List resources with optional type, building, capacity, and text filters"
+      operationId: list
+      parameters:
+      - name: type
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - COMPUTER_LAB
+          - CLASSROOM
+          - MEETING_ROOM
+          - PROJECTOR
+          - LAB_EQUIPMENT
+          - OTHER
+      - name: building
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: minCapacity
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Matching resources.
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ResourceResponse"
+        "401":
+          description: Authentication is required.
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    post:
+      tags:
+      - Resources
+      summary: Create a resource (administrators only)
+      operationId: create
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateResourceRequest"
+        required: true
+      responses:
+        "400":
+          description: Validation failed.
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "403":
+          description: "Only administrators can create resources, or CSRF token missing/invalid."
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "201":
+          description: Resource created.
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ResourceResponse"
+        "401":
+          description: Authentication is required.
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/issues:
+    get:
+      tags:
+      - Issues
+      summary: List issues visible to the caller
+      description: "Students and faculty only ever receive their own issues; technicians\
+        \ receive issues assigned to them. Supports page, size, and sort query parameters."
+      operationId: list_1
+      parameters:
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - REPORTED
+          - TRIAGED
+          - ASSIGNED
+          - IN_PROGRESS
+          - RESOLVED
+          - CLOSED
+          - REJECTED
+          - CANCELLED
+      - name: category
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - ELECTRICAL
+          - PLUMBING
+          - LAB_EQUIPMENT
+          - COMPUTER_SYSTEMS
+          - CLASSROOM_EQUIPMENT
+          - NETWORK
+          - CLEANING
+          - SAFETY
+          - OTHER
+      - name: priority
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - LOW
+          - MEDIUM
+          - HIGH
+          - CRITICAL
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: mine
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+      - name: assignedToMe
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+      - name: pageable
+        in: query
+        required: true
+        schema:
+          $ref: "#/components/schemas/Pageable"
+      responses:
+        "200":
+          description: Paged issues.
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/PageResponseIssueResponse"
+        "401":
+          description: Authentication is required.
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    post:
+      tags:
+      - Issues
+      summary: Report a new issue
+      description: Returns the created issue with its ISS- reference and the explainable
+        priority recommendation.
+      operationId: create_1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateIssueRequest"
+        required: true
+      responses:
+        "403":
+          description: CSRF token missing or invalid.
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "400":
+          description: Validation failed; fieldErrors lists each invalid field.
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "201":
+          description: Issue created.
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/IssueResponse"
+        "401":
+          description: Authentication is required.
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/issues/{id}/transitions:
+    post:
+      tags:
+      - Issues
+      summary: Move an issue to a new status
+      description: Only transitions allowed by the issue workflow are accepted. Resolving
+        requires a note. Every transition is audited.
+      operationId: transition
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TransitionRequest"
+        required: true
+      responses:
+        "409":
+          description: Transition not allowed from the current status (ILLEGAL_TRANSITION).
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "400":
+          description: Validation failed.
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "403":
+          description: "Caller may not act on this issue, or CSRF token missing/invalid."
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "200":
+          description: Issue moved.
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/IssueResponse"
+        "404":
+          description: Issue not found.
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "422":
+          description: "Business rule violated, e.g. resolving without notes (BUSINESS_RULE)."
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Authentication is required.
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/issues/{id}/assign:
+    post:
+      tags:
+      - Issues
+      summary: Assign a technician (administrators only)
+      operationId: assign
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssignRequest"
+        required: true
+      responses:
+        "400":
+          description: Validation failed.
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "422":
+          description: Selected user is not an active technician (BUSINESS_RULE).
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: Issue is in a terminal state and cannot be assigned (ILLEGAL_TRANSITION).
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "403":
+          description: "Only administrators can assign, or CSRF token missing/invalid."
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "200":
+          description: Technician assigned; issue moves to ASSIGNED.
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/IssueResponse"
+        "404":
+          description: Issue or technician not found.
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Authentication is required.
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/bookings:
+    get:
+      tags:
+      - Bookings
+      summary: List bookings visible to the caller
+      description: "Students and faculty only receive their own bookings. Supports\
+        \ page, size, and sort query parameters."
+      operationId: list_2
+      parameters:
+      - name: resourceId
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int64
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - PENDING
+          - CONFIRMED
+          - REJECTED
+          - CANCELLED
+      - name: mine
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+      - name: pageable
+        in: query
+        required: true
+        schema:
+          $ref: "#/components/schemas/Pageable"
+      responses:
+        "200":
+          description: Paged bookings.
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/PageResponseBookingResponse"
+        "401":
+          description: Authentication is required.
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    post:
+      tags:
+      - Bookings
+      summary: Create a booking
+      description: Overlapping active bookings are rejected with alternative free
+        slots. Adjacent bookings (one ends exactly when the next starts) are allowed.
+      operationId: create_2
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBookingRequest"
+        required: true
+      responses:
+        "403":
+          description: CSRF token missing or invalid.
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "400":
+          description: Validation failed.
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: Overlapping booking exists (BOOKING_CONFLICT); alternatives
+            lists free slots.
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ConflictResponse"
+        "404":
+          description: Resource not found.
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "422":
+          description: Resource unavailable or invalid time window (BUSINESS_RULE).
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "201":
+          description: "Booking created (CONFIRMED, or PENDING when the resource requires\
+            \ approval)."
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/BookingResponse"
+        "401":
+          description: Authentication is required.
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/bookings/{id}/reject:
+    post:
+      tags:
+      - Bookings
+      summary: Reject a pending booking (administrators only)
+      operationId: reject
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ActionRequest"
+      responses:
+        "200":
+          description: Booking rejected.
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/BookingResponse"
+        "403":
+          description: "Only administrators can reject, or CSRF token missing/invalid."
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Booking not found.
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: Only PENDING bookings can be rejected (ILLEGAL_TRANSITION).
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Authentication is required.
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/bookings/{id}/cancel:
+    post:
+      tags:
+      - Bookings
+      summary: Cancel a booking (owner or administrators)
+      operationId: cancel
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ActionRequest"
+      responses:
+        "403":
+          description: "Only the owner or an administrator can cancel, or CSRF token\
+            \ missing/invalid."
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: Booking is already cancelled or rejected (ILLEGAL_TRANSITION).
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Booking not found.
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "422":
+          description: Booking has already ended (BUSINESS_RULE).
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "200":
+          description: Booking cancelled.
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/BookingResponse"
+        "401":
+          description: Authentication is required.
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/bookings/{id}/approve:
+    post:
+      tags:
+      - Bookings
+      summary: Approve a pending booking (administrators only)
+      operationId: approve
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "409":
+          description: Only PENDING bookings can be approved (ILLEGAL_TRANSITION).
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "403":
+          description: "Only administrators can approve, or CSRF token missing/invalid."
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "200":
+          description: Booking confirmed.
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/BookingResponse"
+        "404":
+          description: Booking not found.
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Authentication is required.
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/auth/logout:
+    post:
+      tags:
+      - Authentication
+      summary: Log out and invalidate the session
+      operationId: logout
+      responses:
+        "403":
+          description: CSRF token missing or invalid.
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "204":
+          description: Logged out; no body.
+        "401":
+          description: Authentication is required.
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/auth/login:
+    post:
+      tags:
+      - Authentication
+      summary: Log in and create a server-side session
+      description: "Public endpoint, exempt from CSRF. On success the response sets\
+        \ the JSESSIONID session cookie and an XSRF-TOKEN cookie for later mutating\
+        \ requests."
+      operationId: login
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+        required: true
+      responses:
+        "400":
+          description: Validation failed.
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Invalid email or password.
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "200":
+          description: Logged in; session cookie set.
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/MeResponse"
+      security: []
+  /api/v1/analytics/optimization/recommendations:
+    post:
+      tags:
+      - Analytics
+      summary: Rank resources for a desired booking
+      description: Returns up to 5 scored recommendations with explanations. Booking
+        a recommendation re-validates availability through the booking service.
+      operationId: recommendations
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OptimizationRequest"
+        required: true
+      responses:
+        "200":
+          description: OK.
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RecommendationResponse"
+        "400":
+          description: "Validation failed, including an unknown resourceType."
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Authentication is required.
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/admin/users:
+    get:
+      tags:
+      - Administration
+      summary: List all users (CAMPUS_ADMIN only)
+      operationId: list_3
+      responses:
+        "403":
+          description: Campus administrator access required.
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "200":
+          description: All users.
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UserResponse"
+        "401":
+          description: Authentication is required.
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    post:
+      tags:
+      - Administration
+      summary: Create a user (CAMPUS_ADMIN only)
+      operationId: create_3
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUserRequest"
+        required: true
+      responses:
+        "400":
+          description: Validation failed.
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "201":
+          description: User created.
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/UserResponse"
+        "409":
+          description: Email already in use (DUPLICATE_EMAIL).
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "403":
+          description: "Campus administrator access required, or CSRF token missing/invalid."
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Authentication is required.
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/resources/{id}:
+    get:
+      tags:
+      - Resources
+      summary: Get one resource
+      operationId: detail
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "404":
+          description: Resource not found.
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "200":
+          description: Resource.
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ResourceResponse"
+        "401":
+          description: Authentication is required.
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    patch:
+      tags:
+      - Resources
+      summary: Update a resource (administrators only)
+      description: "Only supplied, non-empty fields are changed."
+      operationId: update
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateResourceRequest"
+        required: true
+      responses:
+        "400":
+          description: Validation failed.
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "403":
+          description: "Only administrators can update resources, or CSRF token missing/invalid."
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "200":
+          description: Resource updated.
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ResourceResponse"
+        "404":
+          description: Resource not found.
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Authentication is required.
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/resources/{resourceId}/schedule:
+    get:
+      tags:
+      - Bookings
+      summary: List bookings for one resource in a time window
+      description: Used to render availability. from and to are ISO-8601 instants.
+      operationId: schedule
+      parameters:
+      - name: resourceId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: from
+        in: query
+        required: true
+        schema:
+          type: string
+          format: date-time
+      - name: to
+        in: query
+        required: true
+        schema:
+          type: string
+          format: date-time
+      responses:
+        "200":
+          description: Bookings in the window.
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BookingResponse"
+        "400":
+          description: Missing or invalid from/to parameters.
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Authentication is required.
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/issues/{id}:
+    get:
+      tags:
+      - Issues
+      summary: Get one issue with its activity history and allowed transitions
+      operationId: detail_1
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "404":
+          description: "Issue not found, or not visible to the caller."
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "200":
+          description: Issue detail.
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/IssueDetailResponse"
+        "401":
+          description: Authentication is required.
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/issues/overdue:
+    get:
+      tags:
+      - Issues
+      summary: List overdue open issues (staff only)
+      description: Open issues older than the configured overdue threshold (48 hours
+        by default).
+      operationId: overdue
+      responses:
+        "403":
+          description: Staff access required.
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "200":
+          description: Overdue issues.
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/IssueResponse"
+        "401":
+          description: Authentication is required.
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/bookings/{id}:
+    get:
+      tags:
+      - Bookings
+      summary: Get one booking
+      operationId: detail_2
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "404":
+          description: "Booking not found, or not visible to the caller."
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "200":
+          description: Booking.
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/BookingResponse"
+        "401":
+          description: Authentication is required.
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/auth/me:
+    get:
+      tags:
+      - Authentication
+      summary: Return the currently authenticated user
+      operationId: me
+      responses:
+        "200":
+          description: Current user.
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/MeResponse"
+        "401":
+          description: Authentication is required.
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/analytics/utilization:
+    get:
+      tags:
+      - Analytics
+      summary: Utilisation overview (same KPIs as /overview)
+      operationId: utilization
+      parameters:
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+      responses:
+        "200":
+          description: OK.
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/OverviewResponse"
+        "400":
+          description: "Validation failed, including an unknown resourceType."
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Authentication is required.
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/analytics/resources:
+    get:
+      tags:
+      - Analytics
+      summary: Resource usage ranking (estimates)
+      description: Booked hours assume an average booking length and are documented
+        as estimates.
+      operationId: resources
+      responses:
+        "200":
+          description: OK.
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ResourceUsageResponse"
+        "400":
+          description: "Validation failed, including an unknown resourceType."
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Authentication is required.
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/analytics/overview:
+    get:
+      tags:
+      - Analytics
+      summary: Campus overview KPIs for a date range
+      description: Defaults to the last 30 days when from/to are omitted. Empty ranges
+        return zeros.
+      operationId: overview
+      parameters:
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+      responses:
+        "200":
+          description: OK.
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/OverviewResponse"
+        "400":
+          description: "Validation failed, including an unknown resourceType."
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Authentication is required.
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/analytics/issues:
+    get:
+      tags:
+      - Analytics
+      summary: "Issue counts by category, status, and top buildings"
+      operationId: issues
+      responses:
+        "200":
+          description: OK.
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/IssuesAnalyticsResponse"
+        "400":
+          description: "Validation failed, including an unknown resourceType."
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Authentication is required.
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/admin/users/technicians:
+    get:
+      tags:
+      - Administration
+      summary: List active technicians (staff and administrators)
+      operationId: technicians
+      responses:
+        "403":
+          description: Staff access required.
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "200":
+          description: Active technicians.
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UserResponse"
+        "401":
+          description: Authentication is required.
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiError"
+components:
+  schemas:
+    CreateResourceRequest:
+      required:
+      - building
+      - name
+      - type
+      type: object
+      properties:
+        name:
+          maxLength: 160
+          minLength: 0
+          type: string
+        type:
+          type: string
+          enum:
+          - COMPUTER_LAB
+          - CLASSROOM
+          - MEETING_ROOM
+          - PROJECTOR
+          - LAB_EQUIPMENT
+          - OTHER
+        building:
+          maxLength: 120
+          minLength: 0
+          type: string
+        location:
+          maxLength: 160
+          minLength: 0
+          type: string
+        capacity:
+          minimum: 1
+          type: integer
+          format: int32
+        description:
+          maxLength: 1000
+          minLength: 0
+          type: string
+        requiresApproval:
+          type: boolean
+        equipment:
+          type: array
+          items:
+            type: string
+    ApiError:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+          example: 2026-10-15T18:48:58Z
+        status:
+          type: integer
+          format: int32
+          example: 400
+        code:
+          type: string
+          description: "VALIDATION_ERROR, UNAUTHENTICATED, FORBIDDEN, NOT_FOUND, BOOKING_CONFLICT,\
+            \ ILLEGAL_TRANSITION, DUPLICATE_EMAIL, BUSINESS_RULE, or INTERNAL_ERROR"
+          example: VALIDATION_ERROR
+        message:
+          type: string
+          example: The request contains invalid fields.
+        path:
+          type: string
+          example: /api/v1/issues
+        fieldErrors:
+          type: object
+          additionalProperties:
+            type: string
+    ResourceResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        type:
+          type: string
+        building:
+          type: string
+        location:
+          type: string
+        capacity:
+          type: integer
+          format: int32
+        description:
+          type: string
+        status:
+          type: string
+        requiresApproval:
+          type: boolean
+        equipment:
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    CreateIssueRequest:
+      required:
+      - building
+      - category
+      - description
+      - title
+      type: object
+      properties:
+        title:
+          maxLength: 200
+          minLength: 0
+          type: string
+          example: Projector not turning on in Lab A
+        description:
+          maxLength: 4000
+          minLength: 0
+          type: string
+        category:
+          type: string
+          enum:
+          - ELECTRICAL
+          - PLUMBING
+          - LAB_EQUIPMENT
+          - COMPUTER_SYSTEMS
+          - CLASSROOM_EQUIPMENT
+          - NETWORK
+          - CLEANING
+          - SAFETY
+          - OTHER
+        building:
+          maxLength: 120
+          minLength: 0
+          type: string
+        locationDetail:
+          maxLength: 200
+          minLength: 0
+          type: string
+        priority:
+          type: string
+          enum:
+          - LOW
+          - MEDIUM
+          - HIGH
+          - CRITICAL
+        affectedPeople:
+          minimum: 1
+          type: integer
+          format: int32
+        safetyRisk:
+          type: boolean
+    IssueResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        reference:
+          type: string
+          example: ISS-0158
+        title:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+        priority:
+          type: string
+        status:
+          type: string
+        building:
+          type: string
+        locationDetail:
+          type: string
+        reporterId:
+          type: integer
+          format: int64
+        reporterName:
+          type: string
+        assigneeId:
+          type: integer
+          format: int64
+        assigneeName:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        resolvedAt:
+          type: string
+          format: date-time
+        resolutionNotes:
+          type: string
+        priorityExplanation:
+          type: string
+    TransitionRequest:
+      required:
+      - toStatus
+      type: object
+      properties:
+        toStatus:
+          type: string
+          enum:
+          - REPORTED
+          - TRIAGED
+          - ASSIGNED
+          - IN_PROGRESS
+          - RESOLVED
+          - CLOSED
+          - REJECTED
+          - CANCELLED
+        note:
+          maxLength: 2000
+          minLength: 0
+          type: string
+    AssignRequest:
+      required:
+      - technicianId
+      type: object
+      properties:
+        technicianId:
+          type: integer
+          format: int64
+    CreateBookingRequest:
+      required:
+      - endAt
+      - purpose
+      - resourceId
+      - startAt
+      type: object
+      properties:
+        resourceId:
+          type: integer
+          format: int64
+        purpose:
+          maxLength: 300
+          minLength: 0
+          type: string
+        startAt:
+          type: string
+          format: date-time
+          example: 2026-10-20T09:00:00Z
+        endAt:
+          type: string
+          format: date-time
+    AlternativeSlot:
+      type: object
+      properties:
+        startAt:
+          type: string
+          format: date-time
+        endAt:
+          type: string
+          format: date-time
+        reason:
+          type: string
+    ConflictResponse:
+      type: object
+      properties:
+        code:
+          type: string
+          example: BOOKING_CONFLICT
+        message:
+          type: string
+        alternatives:
+          type: array
+          items:
+            $ref: "#/components/schemas/AlternativeSlot"
+    BookingResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        resourceId:
+          type: integer
+          format: int64
+        resourceName:
+          type: string
+        ownerId:
+          type: integer
+          format: int64
+        ownerName:
+          type: string
+        purpose:
+          type: string
+        startAt:
+          type: string
+          format: date-time
+        endAt:
+          type: string
+          format: date-time
+        status:
+          type: string
+        cancelReason:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+    ActionRequest:
+      type: object
+      properties:
+        reason:
+          maxLength: 500
+          minLength: 0
+          type: string
+    LoginRequest:
+      required:
+      - email
+      - password
+      type: object
+      properties:
+        email:
+          type: string
+          example: student@campus.edu
+        password:
+          type: string
+    MeResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        email:
+          type: string
+        displayName:
+          type: string
+        role:
+          type: string
+        department:
+          type: string
+    OptimizationRequest:
+      required:
+      - endAt
+      - resourceType
+      - startAt
+      type: object
+      properties:
+        resourceType:
+          type: string
+          example: COMPUTER_LAB
+          enum:
+          - COMPUTER_LAB
+          - CLASSROOM
+          - MEETING_ROOM
+          - PROJECTOR
+          - LAB_EQUIPMENT
+          - OTHER
+        capacity:
+          type: integer
+          format: int32
+        equipment:
+          type: array
+          items:
+            type: string
+        startAt:
+          type: string
+          format: date-time
+        endAt:
+          type: string
+          format: date-time
+        building:
+          type: string
+    RecommendationResponse:
+      type: object
+      properties:
+        resourceId:
+          type: integer
+          format: int64
+        resourceName:
+          type: string
+        building:
+          type: string
+        capacity:
+          type: integer
+          format: int32
+        score:
+          type: number
+          format: double
+        explanation:
+          type: string
+        utilizationEstimate:
+          type: number
+          format: double
+        startAt:
+          type: string
+          format: date-time
+        endAt:
+          type: string
+          format: date-time
+    CreateUserRequest:
+      required:
+      - displayName
+      - email
+      - password
+      - role
+      type: object
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+        displayName:
+          type: string
+        role:
+          type: string
+          enum:
+          - STUDENT
+          - FACULTY
+          - TECHNICIAN
+          - DEPT_ADMIN
+          - CAMPUS_ADMIN
+        department:
+          type: string
+    UserResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        email:
+          type: string
+        displayName:
+          type: string
+        role:
+          type: string
+        department:
+          type: string
+        active:
+          type: boolean
+    UpdateResourceRequest:
+      type: object
+      properties:
+        name:
+          maxLength: 160
+          minLength: 0
+          type: string
+        type:
+          type: string
+          enum:
+          - COMPUTER_LAB
+          - CLASSROOM
+          - MEETING_ROOM
+          - PROJECTOR
+          - LAB_EQUIPMENT
+          - OTHER
+        building:
+          maxLength: 120
+          minLength: 0
+          type: string
+        location:
+          maxLength: 160
+          minLength: 0
+          type: string
+        capacity:
+          minimum: 1
+          type: integer
+          format: int32
+        description:
+          maxLength: 1000
+          minLength: 0
+          type: string
+        status:
+          type: string
+          enum:
+          - ACTIVE
+          - MAINTENANCE
+          - INACTIVE
+        requiresApproval:
+          type: boolean
+        equipment:
+          type: array
+          items:
+            type: string
+    Pageable:
+      type: object
+      properties:
+        page:
+          minimum: 0
+          type: integer
+          format: int32
+        size:
+          minimum: 1
+          type: integer
+          format: int32
+        sort:
+          type: array
+          items:
+            type: string
+    PageResponseIssueResponse:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: "#/components/schemas/IssueResponse"
+        page:
+          type: integer
+          format: int32
+        size:
+          type: integer
+          format: int32
+        totalElements:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer
+          format: int32
+    ActivityResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        actorName:
+          type: string
+        action:
+          type: string
+        fromStatus:
+          type: string
+        toStatus:
+          type: string
+        note:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+    IssueDetailResponse:
+      type: object
+      properties:
+        issue:
+          $ref: "#/components/schemas/IssueResponse"
+        activity:
+          type: array
+          items:
+            $ref: "#/components/schemas/ActivityResponse"
+        allowedTransitions:
+          type: array
+          items:
+            type: string
+    PageResponseBookingResponse:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: "#/components/schemas/BookingResponse"
+        page:
+          type: integer
+          format: int32
+        size:
+          type: integer
+          format: int32
+        totalElements:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer
+          format: int32
+    OverviewResponse:
+      type: object
+      properties:
+        totalIssues:
+          type: integer
+          format: int64
+        openIssues:
+          type: integer
+          format: int64
+        criticalIssues:
+          type: integer
+          format: int64
+        overdueIssues:
+          type: integer
+          format: int64
+        avgResolutionHours:
+          type: number
+          format: double
+        resolvedInRange:
+          type: integer
+          format: int64
+        utilizationRate:
+          type: number
+          format: double
+        conflictAttempts:
+          type: integer
+          format: int64
+        totalBookings:
+          type: integer
+          format: int64
+        totalResources:
+          type: integer
+          format: int64
+    ResourceUsageResponse:
+      type: object
+      properties:
+        resourceId:
+          type: integer
+          format: int64
+        resourceName:
+          type: string
+        bookingCount:
+          type: integer
+          format: int64
+        bookedHours:
+          type: number
+          format: double
+        utilizationRate:
+          type: number
+          format: double
+    IssuesAnalyticsResponse:
+      type: object
+      properties:
+        byCategory:
+          type: array
+          items:
+            $ref: "#/components/schemas/NameCount"
+        byStatus:
+          type: array
+          items:
+            $ref: "#/components/schemas/NameCount"
+        topBuildings:
+          type: array
+          items:
+            $ref: "#/components/schemas/NameCount"
+    NameCount:
+      type: object
+      properties:
+        name:
+          type: string
+        count:
+          type: integer
+          format: int64
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      description: Server-side session cookie returned by POST /api/v1/auth/login.
+      name: JSESSIONID
+      in: cookie
+    csrfToken:
+      type: apiKey
+      description: Value of the XSRF-TOKEN cookie set on responses. Required on all
+        mutating requests except login.
+      name: X-XSRF-TOKEN
+      in: header

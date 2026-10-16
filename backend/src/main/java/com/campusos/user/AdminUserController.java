@@ -10,9 +10,17 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import com.campusos.common.exception.ApiError;
 
 import java.util.List;
 
+@Tag(name = "Administration", description = "User administration. Listing and creating users requires the CAMPUS_ADMIN role.")
 @RestController
 @RequestMapping("/api/v1/admin/users")
 public class AdminUserController {
@@ -34,6 +42,11 @@ public class AdminUserController {
             @NotNull Role role,
             String department) {}
 
+    @Operation(summary = "List all users (CAMPUS_ADMIN only)")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "All users."),
+            @ApiResponse(responseCode = "401", description = "Authentication is required.", content = @Content(schema = @Schema(implementation = ApiError.class))),
+            @ApiResponse(responseCode = "403", description = "Campus administrator access required.", content = @Content(schema = @Schema(implementation = ApiError.class)))})
     @GetMapping
     public List<UserResponse> list() {
         requireCampusAdmin();
@@ -42,6 +55,11 @@ public class AdminUserController {
                 .toList();
     }
 
+    @Operation(summary = "List active technicians (staff and administrators)")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Active technicians."),
+            @ApiResponse(responseCode = "401", description = "Authentication is required.", content = @Content(schema = @Schema(implementation = ApiError.class))),
+            @ApiResponse(responseCode = "403", description = "Staff access required.", content = @Content(schema = @Schema(implementation = ApiError.class)))})
     @GetMapping("/technicians")
     public List<UserResponse> technicians() {
         var actor = currentUser.require();
@@ -51,6 +69,13 @@ public class AdminUserController {
                 .toList();
     }
 
+    @Operation(summary = "Create a user (CAMPUS_ADMIN only)")
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "User created."),
+            @ApiResponse(responseCode = "400", description = "Validation failed.", content = @Content(schema = @Schema(implementation = ApiError.class))),
+            @ApiResponse(responseCode = "401", description = "Authentication is required.", content = @Content(schema = @Schema(implementation = ApiError.class))),
+            @ApiResponse(responseCode = "403", description = "Campus administrator access required, or CSRF token missing/invalid.", content = @Content(schema = @Schema(implementation = ApiError.class))),
+            @ApiResponse(responseCode = "409", description = "Email already in use (DUPLICATE_EMAIL).", content = @Content(schema = @Schema(implementation = ApiError.class)))})
     @PostMapping
     public ResponseEntity<UserResponse> create(@Valid @RequestBody CreateUserRequest req) {
         requireCampusAdmin();
